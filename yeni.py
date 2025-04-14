@@ -11,9 +11,16 @@ from sklearn.metrics import r2_score
 def load_data(file_path='HouseData2.xlsx'):
     """
     Excel dosyasından veriyi yükler.
+    Sütun adlarını küçük harfe çevirir.
     """
     try:
         df = pd.read_excel(file_path)
+        # Sütun isimlerini tümünü küçük harfe çeviriyoruz
+        df.columns = df.columns.str.lower()
+        # Kategorik sütunlardaki değerleri de küçük harfe çeviriyoruz (varsa)
+        for col in ['ilçe', 'mahalle', 'odasayısı']:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.lower()
         st.write("Veri başarıyla yüklendi, ilk 5 satır:")
         st.write(df.head())
     except Exception as e:
@@ -24,25 +31,25 @@ def load_data(file_path='HouseData2.xlsx'):
 # 2. Veri Ön İşleme Fonksiyonu
 def preprocess_data(df):
     """
-    - Fiyat sütununa göre aykırı değerleri filtreler (5. ve 95. percentiller arasında)
-    - 'Balkon' bilgisi mevcutsa, eksik değer içeren satırları kaldırır.
-    - Kategorik verileri (ör. İlçe, Mahalle, OdaSayısı) one-hot encoding ile dönüştürür.
+    - 'fiyat' sütununa göre aykırı değerleri filtreler (5. ve 95. percentil arasında)
+    - 'balkon' bilgisi mevcutsa, eksik değer içeren satırları kaldırır.
+    - Kategorik verileri (ör. ilçe, mahalle, odasayısı) one-hot encoding ile dönüştürür.
     """
-    # Aykırı değerlerin filtrelenmesi (Fiyat sütununda)
-    if 'Fiyat' not in df.columns:
-        st.error("Veride 'Fiyat' sütunu bulunamadı!")
+    # 'fiyat' sütununun kontrolü
+    if 'fiyat' not in df.columns:
+        st.error("Veride 'fiyat' sütunu bulunamadı!")
         return None
 
-    lower_bound = df['Fiyat'].quantile(0.05)
-    upper_bound = df['Fiyat'].quantile(0.95)
-    df = df[(df['Fiyat'] >= lower_bound) & (df['Fiyat'] <= upper_bound)]
+    lower_bound = df['fiyat'].quantile(0.05)
+    upper_bound = df['fiyat'].quantile(0.95)
+    df = df[(df['fiyat'] >= lower_bound) & (df['fiyat'] <= upper_bound)]
 
-    # Balkon bilgisi varsa, sadece mevcut olan veriler kullanılıyor
-    if 'Balkon' in df.columns:
-        df = df.dropna(subset=['Balkon'])
+    # Eğer 'balkon' sütunu varsa, eksik verileri kaldırıyoruz
+    if 'balkon' in df.columns:
+        df = df.dropna(subset=['balkon'])
 
-    # Kategorik sütunlar: verinizdeki doğru sütun isimlerini kullanın
-    categorical_cols = ['İlçe', 'Mahalle', 'OdaSayısı']
+    # Kategorik sütunlar: 'ilçe', 'mahalle', 'odasayısı'
+    categorical_cols = ['ilçe', 'mahalle', 'odasayısı']
     for col in categorical_cols:
         if col in df.columns:
             dummies = pd.get_dummies(df[col], prefix=col)
@@ -50,7 +57,6 @@ def preprocess_data(df):
             df.drop(col, axis=1, inplace=True)
         else:
             st.warning(f"'{col}' sütunu veride bulunamadı.")
-
     return df
 
 # 3. Model Eğitim ve Karşılaştırma Fonksiyonu
@@ -58,16 +64,16 @@ def train_models(df):
     """
     Üç farklı regresyon modelini eğitir:
       - Karar Ağacı Regresyonu,
-      - Destek Vektör Regresyonu (SVR) : Farklı parametre kombinasyonları deneniyor.
-      - Yapay Sinir Ağı (MLPRegressor): Gizli katmanda 40, 70, 100 nöron denemeleri.
+      - Destek Vektör Regresyonu (SVR): GridSearchCV ile parametre araması yapılır.
+      - Yapay Sinir Ağı (MLPRegressor): Gizli katmanda 40, 70, 100 nöron denemeleri yapılır.
     Model performansları R² skoru ile ölçülür.
     """
-    if 'Fiyat' not in df.columns:
+    if 'fiyat' not in df.columns:
         st.error("Fiyat sütunu eksik!")
         return None, None, None
 
-    X = df.drop('Fiyat', axis=1)
-    y = df['Fiyat']
+    X = df.drop('fiyat', axis=1)
+    y = df['fiyat']
 
     # Eğitim ve test setlerine ayırma
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -88,7 +94,6 @@ def train_models(df):
     param_grid_svr = {
         'kernel': ['linear', 'rbf'],
         'C': [0.1, 1, 10],
-        # Ek parametreler: gamma, epsilon gibi, veri setine göre eklenebilir.
     }
     grid_svr = GridSearchCV(svr, param_grid_svr, cv=5, scoring='r2')
     grid_svr.fit(X_train, y_train)
@@ -101,13 +106,11 @@ def train_models(df):
     # C) Yapay Sinir Ağı (MLPRegressor) - 40, 70, 100 nöronlu modeller
     best_ann_score = -np.inf
     best_ann_model = None
-    ann_scores = {}
     for neurons in [40, 70, 100]:
         ann = MLPRegressor(hidden_layer_sizes=(neurons,), max_iter=1000, random_state=42)
         ann.fit(X_train, y_train)
         y_pred_ann = ann.predict(X_test)
         score_ann = r2_score(y_test, y_pred_ann)
-        ann_scores[neurons] = score_ann
         if score_ann > best_ann_score:
             best_ann_score = score_ann
             best_ann_model = ann
@@ -115,7 +118,7 @@ def train_models(df):
     models['Yapay Sinir Ağı'] = best_ann_model
     scores['Yapay Sinir Ağı'] = best_ann_score
 
-    # Streamlit arayüzü için özellik isimleri:
+    # Streamlit arayüzü için kullanılacak özellik isimleri
     feature_columns = X.columns
     return models, scores, feature_columns
 
@@ -123,27 +126,28 @@ def train_models(df):
 def streamlit_app(models, scores, feature_columns):
     """
     Kullanıcıya konut özelliklerini seçtiren ve seçilen modele göre fiyat tahmini yapan Streamlit arayüzü.
-    Örnek olarak; İlçe, Mahalle ve Oda sayısı seçenekleri sunulmaktadır.
+    Örnek olarak; ilçe, mahalle ve odasayısı seçenekleri sunulmaktadır.
     """
     st.title("Konut Fiyat Tahmin Uygulaması")
 
     st.sidebar.header("Konut Özellikleri Seçimi")
-    # Örnek seçim seçenekleri – bunları veri kümenize göre dinamik hale getirebilirsiniz.
-    ilce_options = ['Kadıköy', 'Beşiktaş', 'Üsküdar']
-    mahalle_options = ['Moda', 'Levent', 'Maslak']
+    # Örnek seçim seçenekleri – bu değerleri veri kümenize göre uyarlayabilirsiniz
+    # Burada oluşturulan dummy sütun isimleri küçük harf olduğundan, seçenekleri de ona göre ayarlıyoruz:
+    ilce_options = ['kadıköy', 'beşiktaş', 'üsküdar']
+    mahalle_options = ['moda', 'levent', 'maslak']
     oda_options = ['2+1', '3+1', '4+1']
 
     selected_ilce = st.sidebar.selectbox("İlçe Seçiniz", ilce_options)
     selected_mahalle = st.sidebar.selectbox("Mahalle Seçiniz", mahalle_options)
     selected_oda = st.sidebar.selectbox("Oda Sayısı Seçiniz", oda_options)
 
-    # Tüm özellik sütunları için başlangıç değeri 0
+    # Başlangıçta tüm özelliklerin değeri 0
     input_data = {col: 0 for col in feature_columns}
 
-    # Veride one-hot encoding ile oluşturulan sütun isimleri: örneğin 'İlçe_Kadıköy'
-    ilce_col = f"İlçe_{selected_ilce}"
-    mahalle_col = f"Mahalle_{selected_mahalle}"
-    oda_col = f"OdaSayısı_{selected_oda}"
+    # Dummy sütun isimlerinin oluşturulması: örneğin "ilçe_kadıköy"
+    ilce_col = f"ilçe_{selected_ilce}"
+    mahalle_col = f"mahalle_{selected_mahalle}"
+    oda_col = f"odasayısı_{selected_oda}"
 
     if ilce_col in input_data:
         input_data[ilce_col] = 1
