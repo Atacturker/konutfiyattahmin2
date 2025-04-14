@@ -13,7 +13,7 @@ def load_data(file_path='HouseData2.xlsx'):
         df = pd.read_excel(file_path)
         df.columns = df.columns.str.strip().str.lower()  # Sütunları normalize et
 
-        for col in ['ilce', 'mahalle', 'odasayısı']:
+        for col in ['ilce', 'mahalle', 'oda sayı']:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.lower()
 
@@ -46,7 +46,7 @@ def preprocess_data(df):
     if 'balkon' in df.columns:
         df = df.dropna(subset=['balkon'])
 
-    categorical_cols = ['ilce', 'mahalle', 'odasayısı']
+    categorical_cols = ['ilce', 'mahalle', 'oda sayı']
     for col in categorical_cols:
         if col in df.columns:
             dummies = pd.get_dummies(df[col], prefix=col)
@@ -127,7 +127,7 @@ def streamlit_app(models, scores, feature_columns):
 
     ilce_col = f"ilce_{selected_ilce}"
     mahalle_col = f"mahalle_{selected_mahalle}"
-    oda_col = f"odasayısı_{selected_oda}"
+    oda_col = f"oda sayı_{selected_oda}"
 
     if ilce_col in input_data:
         input_data[ilce_col] = 1
