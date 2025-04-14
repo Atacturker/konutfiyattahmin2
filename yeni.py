@@ -11,12 +11,17 @@ from sklearn.metrics import r2_score
 def load_data(file_path='HouseData2.xlsx'):
     try:
         df = pd.read_excel(file_path)
-        df.columns = df.columns.str.lower()
+        df.columns = df.columns.str.strip().str.lower()  # Sütunları normalize et
+
         for col in ['ilçe', 'mahalle', 'odasayısı']:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.lower()
-        st.write("Veri başarıyla yüklendi, ilk 5 satır:")
+
+        st.success("✅ Veri başarıyla yüklendi, ilk 5 satır:")
         st.write(df.head())
+
+        st.info(f"Verideki sütunlar: {df.columns.tolist()}")
+
     except Exception as e:
         st.error(f"Veri yüklenirken hata oluştu: {e}")
         df = None
@@ -24,6 +29,9 @@ def load_data(file_path='HouseData2.xlsx'):
 
 # 2. Veri Ön İşleme Fonksiyonu
 def preprocess_data(df):
+    if 'price' not in df.columns and 'fiyat' in df.columns:
+        df.rename(columns={'fiyat': 'price'}, inplace=True)
+
     if 'price' not in df.columns:
         st.error("Veride 'price' sütunu bulunamadı!")
         return None
@@ -104,9 +112,9 @@ def train_models(df):
 
 # 4. Arayüz
 def streamlit_app(models, scores, feature_columns):
-    st.title("Konut Fiyat Tahmin Uygulaması")
+    st.title("🏘️ Konut Fiyat Tahmin Uygulaması")
 
-    st.sidebar.header("Konut Özellikleri Seçimi")
+    st.sidebar.header("📌 Konut Özellikleri")
     ilce_options = ['kadıköy', 'beşiktaş', 'üsküdar']
     mahalle_options = ['moda', 'levent', 'maslak']
     oda_options = ['2+1', '3+1', '4+1']
@@ -130,20 +138,19 @@ def streamlit_app(models, scores, feature_columns):
 
     model_option = st.sidebar.selectbox("Model Seçiniz", list(models.keys()))
 
-    if st.button("Fiyatı Tahmin Et"):
+    if st.button("🎯 Fiyatı Tahmin Et"):
         model = models[model_option]
         input_df = pd.DataFrame([input_data])
         try:
             prediction = model.predict(input_df)[0]
-            st.success(f"{model_option} modeline göre tahmini konut fiyatı: {prediction:.2f} TL")
-            st.info(f"Modelin R² skoru: {scores[model_option]:.2f}")
+            st.success(f"{model_option} modeline göre tahmini konut fiyatı: {prediction:,.2f} TL")
+            st.info(f"📈 Modelin R² skoru: {scores[model_option]:.2f}")
         except Exception as e:
             st.error(f"Tahmin sırasında hata oluştu: {e}")
 
 # 5. Ana Fonksiyon
 def main():
-    st.sidebar.title("Ayarlar")
-    st.sidebar.write("Eğitilmiş modellerin başarı oranları (R²):")
+    st.sidebar.title("🔧 Ayarlar")
     df = load_data("HouseData2.xlsx")
     if df is None:
         return
@@ -157,7 +164,7 @@ def main():
         return
 
     for model_name, score in scores.items():
-        st.sidebar.write(f"{model_name}: {score:.2f}")
+        st.sidebar.write(f"✅ {model_name}: {score:.2f}")
 
     streamlit_app(models, scores, feature_columns)
 
