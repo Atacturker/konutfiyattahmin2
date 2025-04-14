@@ -35,21 +35,17 @@ def preprocess_data(df):
         st.error("Veride 'price' sütunu bulunamadı!")
         return None
 
-    # TL'yi temizle ve sayıya çevir
     df['price'] = df['price'].astype(str).str.replace("TL", "").str.replace(",", "").str.strip()
     df['price'] = pd.to_numeric(df['price'], errors='coerce')
     df = df.dropna(subset=['price'])
 
-    # Aykırı değerleri kaldır
     lower_bound = df['price'].quantile(0.05)
     upper_bound = df['price'].quantile(0.95)
     df = df[(df['price'] >= lower_bound) & (df['price'] <= upper_bound)]
 
-    # Balkon NaN temizliği (gerekliyse)
     if 'balkon' in df.columns:
         df = df.dropna(subset=['balkon'])
 
-    # Kategorik sütunları one-hot encode et
     categorical_cols = ['ilce', 'mahalle', 'odasayi']
     for col in categorical_cols:
         if col in df.columns:
@@ -70,7 +66,13 @@ def train_models(df):
     X = df.drop('price', axis=1)
     y = df['price']
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    if X.shape[0] < 10:
+        st.error("Model eğitimi için yeterli veri yok! Lütfen daha fazla veri yükleyin.")
+        return None, None, None
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
     models = {}
     scores = {}
