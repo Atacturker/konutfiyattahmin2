@@ -11,46 +11,52 @@ from sklearn.metrics import r2_score
 def load_data(file_path='HouseData2.xlsx'):
     """
     Excel dosyasından veriyi yükler.
-    Sütun adlarını küçük harfe çevirir.
+    Sütun adlarını yeniden adlandırır, fiyatı sayıya çevirir, eksik verileri temizler.
     """
     try:
         df = pd.read_excel(file_path)
-        # Sütun isimlerini tümünü küçük harfe çeviriyoruz
+
+        # Sütunları yeniden adlandırıyoruz
+        df.rename(columns={
+            'ilce': 'district',
+            'mahalle': 'neighborhood',
+            'fiyat': 'price',
+            'tip': 'type',
+            'Net Metrekare': 'net_area',
+            'Bina yas': 'building_age',
+            'Bina Kat': 'building_floor',
+            'Esya': 'furnished',
+            'Banyo Sayi': 'bathroom_count',
+            'Oda Sayi': 'room_count',
+            'Daire Kat': 'floor_number',
+            'Isitma': 'heating',
+            'Site': 'in_complex',
+            'Balkon': 'has_balcony',
+            'Balkon Sayisi': 'balcony_count'
+        }, inplace=True)
+
+        # Sütun isimlerini küçük harfe çevir
         df.columns = df.columns.str.lower()
-        # Kategorik sütunlardaki değerleri de küçük harfe çeviriyoruz (varsa)
-        for col in ['ilçe', 'mahalle', 'odasayısı']:
+
+        # Fiyat sütununu sayıya çevir
+        df['price'] = df['price'].astype(str).str.replace('TL', '', regex=False).str.replace(',', '', regex=False)
+        df['price'] = pd.to_numeric(df['price'], errors='coerce')
+
+        # Kategorik bazı sütunların küçük harfe çevrilmesi
+        for col in ['district', 'neighborhood', 'room_count']:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.lower()
+
+        # Eksik verileri temizle
+        df.dropna(inplace=True)
+
         st.write("Veri başarıyla yüklendi, ilk 5 satır:")
         st.write(df.head())
     except Exception as e:
         st.error(f"Veri yüklenirken hata oluştu: {e}")
         df = None
     return df
-# Veriyi temizle ve sütun adlarını değiştir
-df.rename(columns={
-    'ilce': 'district',
-    'mahalle': 'neighborhood',
-    'fiyat': 'price',
-    'tip': 'type',
-    'Net Metrekare': 'net_area',
-    'Bina yas': 'building_age',
-    'Bina Kat': 'building_floor',
-    'Esya': 'furnished',
-    'Banyo Sayi': 'bathroom_count',
-    'Oda Sayi': 'room_count',
-    'Daire Kat': 'floor_number',
-    'Isitma': 'heating',
-    'Site': 'in_complex',
-    'Balkon': 'has_balcony',
-    'Balkon Sayisi': 'balcony_count'
-}, inplace=True)
 
-# Fiyat sütununu sayıya çevir
-df['price'] = df['price'].str.replace('TL', '', regex=False).str.replace(',', '', regex=False).astype(float)
-
-# Eksik verileri temizle
-df.dropna(inplace=True)
 
 # 2. Veri Ön İşleme Fonksiyonu
 def preprocess_data(df):
