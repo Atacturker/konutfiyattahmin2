@@ -32,13 +32,18 @@ def load_data(file_path='HouseData2.xlsx'):
 def preprocess_data(df):
     """
     - 'fiyat' sütununa göre aykırı değerleri filtreler (5. ve 95. percentil arasında)
+    - 'fiyat' sütununu sayısal değere çevirir, hatalı (sayısal olmayan) değerlerden dolayı oluşabilecek sorunları giderir.
     - 'balkon' bilgisi mevcutsa, eksik değer içeren satırları kaldırır.
     - Kategorik verileri (ör. ilçe, mahalle, odasayısı) one-hot encoding ile dönüştürür.
     """
-    # 'fiyat' sütununun kontrolü
+    # 'fiyat' sütununun kontrolü ve sayısal değere çevrilmesi
     if 'fiyat' not in df.columns:
         st.error("Veride 'fiyat' sütunu bulunamadı!")
         return None
+
+    # Sayısal değere çevirmeye çalışıyoruz
+    df['fiyat'] = pd.to_numeric(df['fiyat'], errors='coerce')
+    df = df.dropna(subset=['fiyat'])  # Sayısal olmayan veriler varsa çıkartılıyor
 
     lower_bound = df['fiyat'].quantile(0.05)
     upper_bound = df['fiyat'].quantile(0.95)
@@ -132,7 +137,6 @@ def streamlit_app(models, scores, feature_columns):
 
     st.sidebar.header("Konut Özellikleri Seçimi")
     # Örnek seçim seçenekleri – bu değerleri veri kümenize göre uyarlayabilirsiniz
-    # Burada oluşturulan dummy sütun isimleri küçük harf olduğundan, seçenekleri de ona göre ayarlıyoruz:
     ilce_options = ['kadıköy', 'beşiktaş', 'üsküdar']
     mahalle_options = ['moda', 'levent', 'maslak']
     oda_options = ['2+1', '3+1', '4+1']
