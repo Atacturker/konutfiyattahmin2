@@ -11,15 +11,14 @@ from sklearn.metrics import r2_score
 def load_data(file_path='HouseData2.xlsx'):
     try:
         df = pd.read_excel(file_path)
-        df.columns = df.columns.str.strip().str.lower()  # Sütunları normalize et
+        df.columns = df.columns.str.strip().str.lower()
 
-        for col in ['ilce', 'mahalle', 'oda sayı']:
+        for col in ['ilce', 'mahalle', 'odasayi']:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.lower()
 
         st.success("✅ Veri başarıyla yüklendi, ilk 5 satır:")
         st.write(df.head())
-
         st.info(f"Verideki sütunlar: {df.columns.tolist()}")
 
     except Exception as e:
@@ -36,17 +35,22 @@ def preprocess_data(df):
         st.error("Veride 'price' sütunu bulunamadı!")
         return None
 
+    # TL'yi temizle ve sayıya çevir
+    df['price'] = df['price'].astype(str).str.replace("TL", "").str.replace(",", "").str.strip()
     df['price'] = pd.to_numeric(df['price'], errors='coerce')
     df = df.dropna(subset=['price'])
 
+    # Aykırı değerleri kaldır
     lower_bound = df['price'].quantile(0.05)
     upper_bound = df['price'].quantile(0.95)
     df = df[(df['price'] >= lower_bound) & (df['price'] <= upper_bound)]
 
+    # Balkon NaN temizliği (gerekliyse)
     if 'balkon' in df.columns:
         df = df.dropna(subset=['balkon'])
 
-    categorical_cols = ['ilce', 'mahalle', 'oda sayı']
+    # Kategorik sütunları one-hot encode et
+    categorical_cols = ['ilce', 'mahalle', 'odasayi']
     for col in categorical_cols:
         if col in df.columns:
             dummies = pd.get_dummies(df[col], prefix=col)
@@ -54,6 +58,7 @@ def preprocess_data(df):
             df.drop(col, axis=1, inplace=True)
         else:
             st.warning(f"'{col}' sütunu veride bulunamadı.")
+
     return df
 
 # 3. Model Eğitim ve Karşılaştırma Fonksiyonu
@@ -70,7 +75,7 @@ def train_models(df):
     models = {}
     scores = {}
 
-    # A) Karar Ağacı
+    # Karar Ağacı
     dt = DecisionTreeRegressor(random_state=42)
     dt.fit(X_train, y_train)
     y_pred_dt = dt.predict(X_test)
@@ -78,7 +83,7 @@ def train_models(df):
     models['Karar Ağacı'] = dt
     scores['Karar Ağacı'] = score_dt
 
-    # B) SVR
+    # SVR
     svr = SVR()
     param_grid_svr = {
         'kernel': ['linear', 'rbf'],
@@ -92,7 +97,7 @@ def train_models(df):
     models['SVR'] = best_svr
     scores['SVR'] = score_svr
 
-    # C) MLPRegressor
+    # Yapay Sinir Ağı
     best_ann_score = -np.inf
     best_ann_model = None
     for neurons in [40, 70, 100]:
@@ -115,9 +120,9 @@ def streamlit_app(models, scores, feature_columns):
     st.title("🏘️ Konut Fiyat Tahmin Uygulaması")
 
     st.sidebar.header("📌 Konut Özellikleri")
-    ilce_options = ['kadıköy', 'beşiktaş', 'üsküdar']
-    mahalle_options = ['moda', 'levent', 'maslak']
-    oda_options = ['2+1', '3+1', '4+1']
+    ilce_options = ['catalca', 'fatih', 'eyupsultan', 'kagithane']
+    mahalle_options = ['elbasan', 'koca mustafapaşa', 'yeşilpınar', 'silivrikapı', 'yeşilce', 'gürsel']
+    oda_options = ['1', '1.5+1']
 
     selected_ilce = st.sidebar.selectbox("İlçe Seçiniz", ilce_options)
     selected_mahalle = st.sidebar.selectbox("Mahalle Seçiniz", mahalle_options)
@@ -127,7 +132,7 @@ def streamlit_app(models, scores, feature_columns):
 
     ilce_col = f"ilce_{selected_ilce}"
     mahalle_col = f"mahalle_{selected_mahalle}"
-    oda_col = f"oda sayı_{selected_oda}"
+    oda_col = f"odasayi_{selected_oda}"
 
     if ilce_col in input_data:
         input_data[ilce_col] = 1
