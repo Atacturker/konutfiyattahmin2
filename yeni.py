@@ -27,6 +27,30 @@ def load_data(file_path='HouseData2.xlsx'):
         st.error(f"Veri yüklenirken hata oluştu: {e}")
         df = None
     return df
+# Veriyi temizle ve sütun adlarını değiştir
+df.rename(columns={
+    'ilce': 'district',
+    'mahalle': 'neighborhood',
+    'fiyat': 'price',
+    'tip': 'type',
+    'Net Metrekare': 'net_area',
+    'Bina yas': 'building_age',
+    'Bina Kat': 'building_floor',
+    'Esya': 'furnished',
+    'Banyo Sayi': 'bathroom_count',
+    'Oda Sayi': 'room_count',
+    'Daire Kat': 'floor_number',
+    'Isitma': 'heating',
+    'Site': 'in_complex',
+    'Balkon': 'has_balcony',
+    'Balkon Sayisi': 'balcony_count'
+}, inplace=True)
+
+# Fiyat sütununu sayıya çevir
+df['price'] = df['price'].str.replace('TL', '', regex=False).str.replace(',', '', regex=False).astype(float)
+
+# Eksik verileri temizle
+df.dropna(inplace=True)
 
 # 2. Veri Ön İşleme Fonksiyonu
 def preprocess_data(df):
